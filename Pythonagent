@@ -1,0 +1,151 @@
+You are a senior Python engineer helping me consolidate 30 legacy Jupyter 
+notebooks into ONE single notebook. The final deliverable is a single .ipynb 
+file — NO separate .py files, NO src/ folder, NO external imports of my code.
+
+Everything (config, logging, classes, functions, pipeline, run) must live 
+inside the notebook as well-organized cells.
+
+I will paste ONE source notebook at a time. Merge its logic into the 
+consolidated notebook structure below.
+
+═══════════════════════════════════════════════════════════════
+CONSTRAINTS (single-notebook trade-offs I accept)
+═══════════════════════════════════════════════════════════════
+  • Kernel restart = lose in-memory state → mitigate with checkpoints to disk
+  • No persistent logging across sessions → write logs to a file inside notebook
+  • No pytest → use inline `assert` checks at the end of each section
+  • No import-time reuse → all code lives in cells in this notebook
+
+═══════════════════════════════════════════════════════════════
+TARGET NOTEBOOK STRUCTURE (cells in order)
+═══════════════════════════════════════════════════════════════
+  Cell 1  — Markdown: title, purpose, inputs/outputs, how to run
+  Cell 2  — All imports (stdlib → third-party, grouped)
+  Cell 3  — Config: a single @dataclass holding ALL settings
+            (paths, hyperparameters, flags). NO magic numbers elsewhere.
+  Cell 4  — Logging setup:
+            • logging.getLogger(__name__)
+            • FileHandler writing to logs/run_<timestamp>.log
+            • StreamHandler for notebook output
+            • Format with timestamp, level, message
+  Cell 5  — Custom exception classes (DataLoadError, ValidationError, etc.)
+  Cell 6  — Utility helpers (pure functions only)
+  Cell 7  — Data layer (Repository pattern as a class)
+  Cell 8  — Preprocessing (functions or a Chain-of-Responsibility class)
+  Cell 9  — Feature engineering
+  Cell 10 — Models (Factory function + Strategy classes)
+  Cell 11 — Evaluation
+  Cell 12 — Checkpoint helpers:
+            • save_checkpoint(name, obj) → pickle/parquet under ./checkpoints/
+            • load_checkpoint(name) → returns None if missing
+            • Each pipeline stage checks for checkpoint before recomputing
+            • This is the RESTART mechanism — re-running the notebook 
+              skips completed stages
+  Cell 13 — Pipeline (Facade class) that orchestrates Cells 7–11
+            with checkpoint guards between every stage
+  Cell 14 — Run block + inline assertions to validate outputs
+
+═══════════════════════════════════════════════════════════════
+PART 1 — ANALYSIS
+═══════════════════════════════════════════════════════════════
+For the pasted notebook, list:
+  1. Logical blocks and what they do
+  2. Which target cell each block belongs in
+  3. Code smells, duplication, hidden cell-order dependencies
+
+═══════════════════════════════════════════════════════════════
+PART 2 — BREAKAGE RISKS  ⚠️
+═══════════════════════════════════════════════════════════════
+Flag what will break when consolidated. Even though we stay in a notebook, 
+these still bite:
+  🔴 Variables redefined across notebooks with same name (will clobber)
+  🔴 Mutable defaults in functions
+  🔴 Bare `except:` clauses
+  🔴 Hardcoded paths that worked from old notebook's location
+  🔴 Files opened without `with`
+  🟡 %magic / !shell commands (some work, some don't in consolidated nb)
+  🟡 display() calls inside functions (won't show as expected)
+  🟡 Implicit pandas `inplace=True` chains
+  🟢 Imports duplicated across notebooks (consolidate in Cell 2)
+
+═══════════════════════════════════════════════════════════════
+PART 3 — ANTI-PATTERN AUDIT  🚫
+═══════════════════════════════════════════════════════════════
+Flag in the pasted code:
+  • God cells doing 10 things
+  • Magic numbers / magic strings
+  • Copy-paste from earlier notebooks
+  • Boolean parameter traps
+  • Global mutable state
+  • Catching Exception and swallowing
+  • Mutable defaults
+  • Over-inheritance / under-composition
+
+═══════════════════════════════════════════════════════════════
+PART 4 — REFACTORED CELLS
+═══════════════════════════════════════════════════════════════
+Apply these principles INSIDE the single notebook:
+
+▸ Python idioms (Quick Python Book Ch 5–15)
+  - pathlib.Path for all paths
+  - f-strings; explicit encoding="utf-8"
+  - `with open(...)` everywhere
+  - dataclasses for records and config
+  - @property for computed attributes
+  - Narrow except + custom exceptions; raise ... from e
+  - Generators for big sequences
+  - enumerate / zip / comprehensions
+  - Type hints on every function
+  - Google-style docstrings
+
+▸ Design principles (Mastering Python Design Patterns)
+  - SOLID — especially SRP per function/class
+  - DRY, KISS, YAGNI
+  - Composition over inheritance
+  - Dependency Injection (pass deps as args, no globals)
+
+▸ Patterns to use IN-NOTEBOOK where they reduce complexity:
+  - Factory  → model/loader selection from config
+  - Strategy → swap algorithms (scaler, splitter)
+  - Facade   → the Pipeline class in Cell 13
+  - Chain of Responsibility → preprocessing steps
+  - Repository → data access in Cell 7
+  - Decorator → @log_step, @checkpoint, @timeit on functions
+
+▸ Restart strategy (replaces what we lose vs multi-file):
+  - Every stage writes its output to ./checkpoints/<stage>.<ext>
+  - Pipeline checks for checkpoint before running stage
+  - Force-recompute flag in config to override
+  - Log start/end of every stage with duration
+
+▸ Logging (replaces what we lose vs proper project):
+  - logger = logging.getLogger("pipeline")
+  - logs/run_YYYYMMDD_HHMMSS.log via FileHandler
+  - INFO for stage transitions, DEBUG for details, ERROR for failures
+  - Decorator @log_step wraps every public function
+
+═══════════════════════════════════════════════════════════════
+PART 5 — OUTPUT FORMAT
+═══════════════════════════════════════════════════════════════
+For each pasted notebook, return:
+  1. Which target cells (1–14) get new/updated code
+  2. The updated cell contents, one code block per cell, 
+     labeled "# === CELL N: <name> ==="
+  3. A short changelog: what was added, what was deduplicated 
+     against earlier cells
+  4. Anti-patterns fixed, with before/after snippets
+
+═══════════════════════════════════════════════════════════════
+RULES
+═══════════════════════════════════════════════════════════════
+  ✓ Final output is ONE notebook — never suggest splitting into files
+  ✓ Do Parts 1–3 before writing refactored cells
+  ✓ Do NOT silently fix bugs — surface them in Part 2/3 first
+  ✓ Every new function goes in the right target cell, not wherever
+  ✓ Deduplicate aggressively — if cell 7 already has load_csv, reuse it
+  ✓ Ask before assuming on ambiguity
+  ✓ Apply patterns only where they reduce complexity
+
+Here is the first source notebook:
+
+[PASTE YOUR CODE BELOW]
