@@ -1,0 +1,287 @@
+You are a senior enterprise data engineering architect and senior Python engineer.
+
+I have an existing Python data pipeline project. Your job is to refactor it into an enterprise-grade, production-ready data ingestion and processing framework.
+
+The pipeline must read files from Azure Blob Storage, process them safely, write outputs, support restart from failure, avoid duplicate processing, maintain audit logs, and include full test cases.
+
+Do NOT compare this to any business use case.
+Do NOT remove existing business logic.
+Do NOT simplify logic.
+Do NOT give placeholder code like “add your logic here”.
+Use my existing code and reorganize it into a clean enterprise project.
+
+The final solution must include:
+
+1. Azure Blob Storage ingestion
+2. Structured JSON logging
+3. Audit logging
+4. Checkpointing
+5. Restart support
+6. Retry with exponential backoff and jitter
+7. Idempotent processing
+8. Duplicate file protection
+9. Bad file quarantine
+10. Archive after successful processing
+11. Data validation
+12. Load reconciliation
+13. Unit tests
+14. Integration-style tests with mocks
+15. README
+16. .env.example
+17. requirements.txt
+18. Clean folder structure
+
+Target folder structure:
+
+project_name/
+├── app/
+│   ├── main.py
+│   └── pipeline_runner.py
+├── config/
+│   ├── settings.py
+│   └── logging_config.py
+├── clients/
+│   ├── blob_client.py
+│   └── storage_client_factory.py
+├── stages/
+│   ├── extract.py
+│   ├── validate.py
+│   ├── transform.py
+│   ├── load.py
+│   └── notify.py
+├── services/
+│   ├── checkpoint_service.py
+│   ├── audit_service.py
+│   ├── file_registry_service.py
+│   ├── retry_service.py
+│   ├── quarantine_service.py
+│   └── reconciliation_service.py
+├── models/
+│   ├── pipeline_context.py
+│   ├── file_metadata.py
+│   ├── audit_record.py
+│   ├── checkpoint_record.py
+│   └── validation_result.py
+├── utils/
+│   ├── file_readers.py
+│   ├── validators.py
+│   ├── hash_utils.py
+│   ├── time_utils.py
+│   └── exceptions.py
+├── tests/
+│   ├── unit/
+│   └── integration/
+├── data/
+│   ├── samples/
+│   └── quarantine/
+├── logs/
+├── .env.example
+├── .gitignore
+├── requirements.txt
+├── README.md
+└── pyproject.toml
+
+The pipeline flow must be:
+
+1. Load settings
+2. Configure logging
+3. Create pipeline_run_id and correlation_id
+4. Connect to Azure Blob Storage
+5. List files from configured container and prefix
+6. Register discovered files
+7. Skip files already processed
+8. For each new file:
+   - Create checkpoint
+   - Read file from Blob Storage
+   - Validate file
+   - Transform data
+   - Load data idempotently
+   - Reconcile source vs target counts
+   - Archive successful file
+   - Mark file completed
+9. If file fails:
+   - Retry transient failures
+   - Quarantine permanent bad files
+   - Write audit failure
+   - Update checkpoint
+10. Write final pipeline summary
+11. Send notification
+
+Logging requirements:
+
+Every log must include:
+- timestamp
+- level
+- pipeline_name
+- pipeline_run_id
+- correlation_id
+- stage_name
+- file_name
+- file_id
+- attempt_number
+- status
+- message
+- duration_ms
+- row_count
+- error_type
+- error_message
+
+Checkpoint requirements:
+
+Support these statuses:
+- NOT_STARTED
+- DISCOVERED
+- EXTRACT_STARTED
+- EXTRACT_COMPLETED
+- VALIDATION_STARTED
+- VALIDATION_COMPLETED
+- TRANSFORM_STARTED
+- TRANSFORM_COMPLETED
+- LOAD_STARTED
+- LOAD_COMPLETED
+- RECONCILIATION_COMPLETED
+- ARCHIVED
+- COMPLETED
+- FAILED
+- QUARANTINED
+
+Restart requirements:
+
+1. If pipeline fails before file load, rerun should continue from that file.
+2. If file already completed, rerun must skip it.
+3. If file load partially failed, load must be idempotent.
+4. If file is quarantined, rerun must not process it again unless manually reset.
+5. If checkpoint says LOAD_STARTED but not LOAD_COMPLETED, rerun must safely reload using idempotent logic.
+
+Duplicate protection:
+
+1. Same blob_name + same etag already completed = skip.
+2. Same blob_name + different etag = process as new version.
+3. Same content_hash under different name = log duplicate warning.
+4. In-progress file lock must prevent two runs from processing same file.
+
+Retry requirements:
+
+Retry only transient errors:
+- timeout
+- throttling
+- HTTP 429
+- HTTP 500
+- HTTP 502
+- HTTP 503
+- HTTP 504
+
+Do not retry permanent errors:
+- invalid schema
+- unsupported file type
+- corrupted file
+- missing required column
+- invalid data format
+- authentication failure
+
+Use exponential backoff with jitter.
+
+Validation requirements:
+
+Validate:
+- file is not empty
+- supported extension
+- readable format
+- expected columns exist
+- required columns are not null
+- numeric fields are numeric
+- date fields are valid
+- duplicate keys are detected
+- row count is greater than zero
+
+Load requirements:
+
+Load must be idempotent.
+
+Use one of these patterns depending on the project:
+- staging table + merge
+- upsert by business key
+- delete target partition and reload
+- temp location + atomic rename
+- bulk write with unique key protection
+
+Reconciliation requirements:
+
+After load, compare:
+- source_row_count
+- transformed_row_count
+- target_row_count
+- records_inserted
+- records_updated
+- records_failed
+
+Do not mark the file completed unless reconciliation passes.
+
+Quarantine requirements:
+
+Move bad files to:
+
+quarantine/{pipeline_name}/{date}/{file_name}
+
+Also write error metadata JSON with:
+- file_name
+- file_id
+- pipeline_run_id
+- correlation_id
+- failure_stage
+- error_type
+- error_message
+- quarantined_at
+
+Archive requirements:
+
+Move successful files to:
+
+archive/{pipeline_name}/{date}/{file_name}
+
+Only archive after validation, transform, load, and reconciliation pass.
+
+Test requirements:
+
+Create pytest test cases for:
+
+1. settings load
+2. missing env variables
+3. Blob listing
+4. Blob download
+5. unsupported file skip
+6. corrupted file handling
+7. validation success
+8. validation failure
+9. checkpoint creation
+10. checkpoint update
+11. restart from failed checkpoint
+12. completed file skip
+13. quarantined file skip
+14. duplicate file detection
+15. file lock behavior
+16. retry success
+17. retry exhaustion
+18. permanent error no retry
+19. idempotent load
+20. reconciliation success
+21. reconciliation failure
+22. quarantine flow
+23. archive flow
+24. full pipeline success flow
+25. full pipeline restart flow
+26. audit events order
+
+Do not connect to real Azure in tests.
+Use mocks for Azure Blob SDK.
+
+Return complete code for every file.
+
+For each file, provide:
+1. File path
+2. Complete code
+3. Short explanation
+
+Do not skip files.
+Do not provide partial code.
+Do not use placeholders.
