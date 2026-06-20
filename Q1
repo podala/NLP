@@ -1,0 +1,67 @@
+WITH base AS (
+    SELECT
+        `timestamp` AS arrival_ts,
+        to_date(`timestamp`) AS arrival_date,
+        file_name,
+        recordcount,
+        status
+    FROM file_arrival_log
+)
+
+SELECT
+    report_level,
+    arrival_date,
+    interval_start,
+    interval_end,
+    COUNT(*) AS files_count,
+    COUNT(DISTINCT file_name) AS unique_files_count,
+    SUM(recordcount) AS total_record_count,
+    MIN(arrival_ts) AS first_file_time,
+    MAX(arrival_ts) AS last_file_time
+FROM (
+    -- Daily level
+    SELECT
+        'DAILY' AS report_level,
+        arrival_date,
+        date_trunc('DAY', arrival_ts) AS interval_start,
+        date_trunc('DAY', arrival_ts) + INTERVAL 1 DAY AS interval_end,
+        arrival_ts,
+        file_name,
+        recordcount
+    FROM base
+
+    UNION ALL
+
+    -- Hourly level
+    SELECT
+        'HOURLY' AS report_level,
+        arrival_date,
+        date_trunc('HOUR', arrival_ts) AS interval_start,
+        date_trunc('HOUR', arrival_ts) + INTERVAL 1 HOUR AS interval_end,
+        arrival_ts,
+        file_name,
+        recordcount
+    FROM base
+
+    UNION ALL
+
+    -- 15-minute interval level
+    SELECT
+        '15_MIN_INTERVAL' AS report_level,
+        arrival_date,
+        window(arrival_ts, '15 minutes').start AS interval_start,
+        window(arrival_ts, '15 minutes').end AS interval_end,
+        arrival_ts,
+        file_name,
+        recordcount
+    FROM base
+) x
+GROUP BY
+    report_level,
+    arrival_date,
+    interval_start,
+    interval_end
+ORDER BY
+    arrival_date DESC,
+    interval_start DESC,
+    report_level;
