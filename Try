@@ -1,0 +1,269 @@
+Yes, you can do it **from MongoDB Atlas itself**. No extra `searchTokens`, no payload transformation.
+
+Use **Atlas Search index + Aggregation query**.
+
+## 1. Create Atlas Search index
+
+Go to:
+
+```text
+Atlas → Database → Browse Collections → your collection
+→ Search Indexes → Create Search Index
+→ JSON Editor
+```
+
+Index name:
+
+```text
+brand_generic_search
+```
+
+Paste this index:
+
+```json
+{
+  "mappings": {
+    "dynamic": false,
+    "fields": {
+      "Brand_Def": {
+        "type": "string"
+      },
+      "Brand_SQL_Logic": {
+        "type": "string"
+      },
+      "Generic_Def": {
+        "type": "string"
+      },
+      "Generic_SQL_Logic": {
+        "type": "string"
+      },
+      "Custom_NonCustom": {
+        "type": "string"
+      },
+      "CustomDef_Medispan_Override": {
+        "type": "string"
+      },
+      "versionId": {
+        "type": "number"
+      },
+      "Idx": {
+        "type": "number"
+      },
+      "CATAddedDate": {
+        "type": "date"
+      }
+    }
+  }
+}
+```
+
+This uses **static mapping**, meaning only these selected fields are indexed, not the full document. MongoDB supports static mappings by setting `dynamic: false` and listing only the fields you want indexed. ([MongoDB][1])
+
+## 2. Query from Atlas Aggregation tab
+
+Go to:
+
+```text
+Collection → Aggregation → Create New Pipeline
+```
+
+Paste this pipeline:
+
+```js
+[
+  {
+    $search: {
+      index: "brand_generic_search",
+      compound: {
+        must: [
+          {
+            text: {
+              query: "Brand Drug",
+              path: [
+                "Brand_Def",
+                "Generic_Def",
+                "Custom_NonCustom",
+                "CustomDef_Medispan_Override"
+              ],
+              matchCriteria: "all"
+            }
+          }
+        ],
+        filter: [
+          {
+            equals: {
+              path: "versionId",
+              value: 1
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    $project: {
+      _id: 1,
+      Idx: 1,
+      Brand_Def: 1,
+      Generic_Def: 1,
+      Custom_NonCustom: 1,
+      CustomDef_Medispan_Override: 1,
+      versionId: 1,
+      score: {
+        $meta: "searchScore"
+      }
+    }
+  },
+  {
+    $limit: 20
+  }
+]
+```
+
+Atlas Search allows searching one field or multiple indexed fields using `path`; for multiple fields, use an array. ([MongoDB][2])
+
+## 3. If user searches only SQL logic field
+
+Use this:
+
+```js
+[
+  {
+    $search: {
+      index: "brand_generic_search",
+      compound: {
+        must: [
+          {
+            text: {
+              query: "ADJ_MULTI_SOURCE_OVERRIDE",
+              path: [
+                "Brand_SQL_Logic",
+                "Generic_SQL_Logic"
+              ],
+              matchCriteria: "all"
+            }
+          }
+        ],
+        filter: [
+          {
+            equals: {
+              path: "versionId",
+              value: 1
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    $project: {
+      Idx: 1,
+      Brand_SQL_Logic: 1,
+      Generic_SQL_Logic: 1,
+      versionId: 1,
+      score: {
+        $meta: "searchScore"
+      }
+    }
+  },
+  {
+    $limit: 20
+  }
+]
+```
+
+## 4. For exact phrase search
+
+If user enters:
+
+```text
+Brand Drug
+```
+
+and you want only exact phrase-like match, use `phrase`:
+
+```js
+[
+  {
+    $search: {
+      index: "brand_generic_search",
+      compound: {
+        must: [
+          {
+            phrase: {
+              query: "Brand Drug",
+              path: [
+                "Brand_Def",
+                "Generic_Def"
+              ],
+              slop: 0
+            }
+          }
+        ],
+        filter: [
+          {
+            equals: {
+              path: "versionId",
+              value: 1
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    $project: {
+      Idx: 1,
+      Brand_Def: 1,
+      Generic_Def: 1,
+      versionId: 1,
+      score: {
+        $meta: "searchScore"
+      }
+    }
+  },
+  {
+    $limit: 20
+  }
+]
+```
+
+Use this for strict business-definition search.
+
+## 5. Important: do not use normal Atlas filter box for `$search`
+
+This box:
+
+```text
+Type a query: { field: 'value' }
+```
+
+is for normal `find()` filters.
+
+For Atlas Search, use:
+
+```text
+Aggregation tab
+```
+
+or
+
+```text
+Search Tester inside Atlas Search Index
+```
+
+## My practical recommendation
+
+For your screen/collection, use this search behavior:
+
+```text
+Definition search  → Brand_Def, Generic_Def, Custom_NonCustom
+SQL logic search   → Brand_SQL_Logic, Generic_SQL_Logic
+Wrong text         → MongoDB returns 0 records
+UI/API             → show "No matching definition found"
+```
+
+Do **not** enable fuzzy search for final result, otherwise wrong spelling may still show some record.
+
+[1]: https://www.mongodb.com/docs/drivers/rust/v2.x/fundamentals/indexes/atlas-search-indexes/?utm_source=chatgpt.com "MongoDB Search Indexes - Rust Driver v2.x"
+[2]: https://www.mongodb.com/docs/atlas/atlas-search/path-construction/?utm_source=chatgpt.com "Construct a Query Path - Atlas - MongoDB Docs"
