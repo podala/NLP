@@ -1,0 +1,51 @@
+{
+  "migrationId": "cosmos-to-mongodb-20260730",
+  "source": "CosmosDB",
+  "target": "MongoDB Atlas",
+  "database": "cmt",
+  "collection": "cases",
+  "migrationType": "FULL_LOAD",
+  "migrationDate": "2026-07-30",
+  "recordCount": 300000,
+  "fileCount": 30,
+  "fileFormat": "JSON_GZIP",
+  "status": "COMPLETED"
+}
+
+
+{
+  "migrationId": "cosmos-to-mongodb-20260730",
+  "database": "cmt",
+  "collection": "cases",
+  "totalRecordCount": 300000,
+  "files": [
+    {
+      "fileName": "part-00001.json.gz",
+      "recordCount": 150000,
+      "clients": [
+        {
+          "clientId": "CLIENT_A",
+          "recordCount": 100000
+        },
+        {
+          "clientId": "CLIENT_B",
+          "recordCount": 50000
+        }
+      ]
+    },
+    {
+      "fileName": "part-00002.json.gz",
+      "recordCount": 150000,
+      "clients": [
+        {
+          "clientId": "CLIENT_B",
+          "recordCount": 25000
+        },
+        {
+          "clientId": "CLIENT_C",
+          "recordCount": 125000
+        }
+      ]
+    }
+  ]
+}
