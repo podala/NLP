@@ -1,0 +1,981 @@
+You are a principal AI architect and senior Python engineer.
+
+Design and implement a production-grade enterprise conversational analytics
+agent that converts natural-language business questions into safe MongoDB
+queries and returns verified, business-standard answers.
+
+The implementation must follow MongoDB's recommended Text-to-MQL pattern:
+
+1. Discover permitted collections.
+2. Inspect relevant collection schemas.
+3. Retrieve annotated field descriptions, data types, indexes, and two or
+   three representative redacted sample documents.
+4. Generate a MongoDB read query or aggregation pipeline.
+5. validate the generated query before execution.
+6. Execute it using a read-only MongoDB account.
+7. Normalize and verify the results.
+8. Generate a business-friendly answer.
+
+However, do not implement unrestricted:
+
+    user text → arbitrary MQL → execute
+
+Add a governed Business SOP and Semantic Contract layer before MQL generation.
+
+==================================================
+1. TECHNOLOGY STACK
+==================================================
+
+Use:
+
+- Python 3.12
+- FastAPI
+- Pydantic v2
+- LangGraph
+- current compatible langchain-mongodb package
+- MongoDBDatabase and MongoDBDatabaseToolkit where appropriate
+- PyMongo asynchronous API where appropriate
+- MongoDB Atlas
+- MongoDBSaver for LangGraph checkpointing
+- pytest
+- Docker
+- structured JSON logging
+- OpenTelemetry-compatible tracing
+
+Use an LLM through an abstraction so the provider can be replaced without
+changing business logic.
+
+Do not tightly couple the design to one LLM vendor.
+
+==================================================
+2. REQUIRED ARCHITECTURE
+==================================================
+
+Implement this workflow:
+
+User Message
+    ↓
+Authentication Context Resolver
+    ↓
+Conversation Context Resolver
+    ↓
+Intent and Domain Router
+    ↓
+Dynamic Business SOP Registry
+    ↓
+Business Semantic Contract Loader
+    ↓
+MongoDB Metadata Resolver
+    ↓
+Structured Query Planner
+    ↓
+Policy and Permission Validator
+    ↓
+MQL Generator
+    ↓
+MongoDB Query Checker
+    ↓
+Performance Preflight
+    ↓
+Read-Only Query Executor
+    ↓
+Result Validator and Normalizer
+    ↓
+Business Response Composer
+    ↓
+Audit and Conversation Memory
+
+Use LangGraph for orchestration.
+
+Create explicit LangGraph nodes for:
+
+- resolve_context
+- classify_intent
+- load_business_contract
+- resolve_schema
+- create_query_plan
+- validate_query_plan
+- generate_mql
+- check_mql
+- performance_preflight
+- execute_query
+- validate_result
+- compose_response
+- save_audit
+- request_clarification
+- handle_error
+
+Use conditional routing for:
+
+- missing business context
+- unsupported intent
+- permission denied
+- unsafe query
+- invalid query
+- expensive query
+- empty result
+- successful result
+
+Do not use an unconstrained ReAct loop for the entire process.
+
+Use a deterministic LangGraph workflow for query generation and execution.
+A bounded agent step may be used only for collection/schema discovery when
+the relevant collection cannot be determined deterministically.
+
+Maximum agent iterations must be configurable and default to 4.
+
+==================================================
+3. BUSINESS SOP REGISTRY
+==================================================
+
+Create a MongoDB collection named:
+
+    agent_business_contracts
+
+Each business contract must be versioned and contain:
+
+- contractId
+- domain
+- intent
+- version
+- status
+- effectiveFrom
+- effectiveTo
+- description
+- userRoles
+- exampleQuestions
+- permittedCollections
+- requiredContext
+- mandatoryFilters
+- allowedDimensions
+- allowedMetrics
+- calculatedMetrics
+- fieldDescriptions
+- fieldAliases
+- allowedOperators
+- allowedAggregationStages
+- prohibitedFields
+- sensitiveFields
+- defaultFields
+- defaultGrouping
+- defaultSorting
+- maximumRows
+- maximumExecutionTimeMs
+- responseSections
+- outputFormats
+- clarificationRules
+- emptyResultMessage
+- securityPolicy
+- createdBy
+- approvedBy
+- createdAt
+- updatedAt
+
+Business users must control:
+
+- which fields are visible
+- which metrics are valid
+- which formulas are approved
+- default fields
+- mandatory fields
+- role-specific fields
+- grouping options
+- sorting
+- output labels
+- output formatting
+- sensitive and prohibited fields
+- mandatory tenant and business filters
+- expected response sections
+
+The final fields must be calculated as:
+
+    mandatory fields
+    + role default fields
+    + explicitly requested permitted fields
+    - prohibited fields
+    - unauthorized sensitive fields
+
+Never allow the LLM to invent a business metric or formula.
+
+Calculated metrics must be defined deterministically in the contract.
+
+Example:
+
+{
+  "businessName": "rebatePerScript",
+  "label": "Rebate Per Script",
+  "formula": {
+    "operation": "divide",
+    "numerator": "totalRebate",
+    "denominator": "totalScripts",
+    "zeroDivisionResult": null
+  },
+  "format": "currency"
+}
+
+==================================================
+4. INITIAL RPT BUSINESS CONTRACTS
+==================================================
+
+Provide three example contracts.
+
+A. rpt.configuration.summary
+
+Purpose:
+Show what was submitted and how the run was configured.
+
+Permitted sources:
+
+- forecast_model
+- model_rpt_pnl
+- rpt_run_model
+
+Default business fields:
+
+- rptId
+- clientId
+- clientName
+- runVersion
+- runDate
+- submittedBy
+- effectiveDate
+- forecastModel
+- pricingModel
+- rebateModel
+- formulary
+- network
+- selectedChannels
+- assumptions
+- runStatus
+
+B. rpt.output.summary
+
+Purpose:
+Show drug-level or aggregated RPT output.
+
+Permitted source:
+
+- rpt_ra_output
+
+Default aggregated fields:
+
+- channel
+- drugType
+- totalScripts
+- totalAWP
+- totalRebate
+- totalNetCost
+- ndcCount
+
+Optional detail fields when explicitly requested:
+
+- ndc
+- drugName
+- formularyStatus
+- rateOwner
+- ingredientCost
+- rebateAmount
+- netCost
+
+Drug-level results must never be returned by default.
+
+C. rpt.financial.summary
+
+Purpose:
+Show rebate, channel, and financial totals.
+
+Permitted source:
+
+- rpt_financial_summary
+
+Default fields:
+
+- channel
+- totalScripts
+- grossCost
+- totalRebate
+- totalNetCost
+- rebatePerScript
+- grossMargin
+- clientSavings
+- baselineVariance
+
+Create an orchestrator intent:
+
+    rpt.summary
+
+If the user asks a vague question such as:
+
+    "Summarize this RPT run"
+
+execute the three approved summaries and return:
+
+1. Configuration
+2. Output overview
+3. Financial impact
+
+If the question is specific, route only to the relevant contract.
+
+==================================================
+5. STRUCTURED QUERY PLAN
+==================================================
+
+The LLM must not initially return raw MQL.
+
+It must first return a validated Pydantic QueryPlan.
+
+Create models similar to:
+
+class QueryPlan:
+    contract_id: str
+    contract_version: str
+    intent: str
+    collection: str
+    operation: Literal["find", "aggregate"]
+    dimensions: list[str]
+    metrics: list[str]
+    requested_fields: list[str]
+    filters: list[QueryFilter]
+    grouping: list[str]
+    sorting: list[QuerySort]
+    limit: int
+    explanation: str
+    requires_clarification: bool
+    clarification_question: str | None
+
+class QueryFilter:
+    business_field: str
+    operator: Literal[
+        "eq", "ne", "gt", "gte", "lt", "lte",
+        "in", "nin", "between", "exists"
+    ]
+    value: Any
+
+The QueryPlan must use business field names, not physical MongoDB field names.
+
+A deterministic compiler must map business field names to physical paths.
+
+Example:
+
+    totalRebate → rebateAmount
+    totalScripts → scriptCount
+    channel → channel
+    clientName → client.name
+
+==================================================
+6. TRUSTED CONTEXT
+==================================================
+
+The following values must come only from the authenticated application
+context and never from the LLM or user text:
+
+- userId
+- tenantId
+- permittedClientIds
+- role
+- permissions
+- environment
+- dataAccessScopes
+
+Business identifiers such as rptId can come from:
+
+1. selected UI context
+2. validated conversation context
+3. explicit user input
+
+The application must inject mandatory filters after LLM planning.
+
+Example:
+
+{
+  "tenantId": authenticated_user.tenant_id,
+  "clientId": {"$in": authenticated_user.permitted_client_ids},
+  "rptId": resolved_business_context.rpt_id
+}
+
+The LLM must not remove or override mandatory filters.
+
+==================================================
+7. MONGODB METADATA PROVIDED TO THE MODEL
+==================================================
+
+Provide only metadata for permitted and relevant collections.
+
+For each selected collection, provide:
+
+- annotated schema
+- business field descriptions
+- physical field paths
+- BSON types
+- required versus optional fields
+- array fields
+- nested fields
+- two or three representative redacted sample documents
+- existing indexes
+- estimated collection size
+- approved relationships to other collections
+
+Serialize BSON samples using Extended JSON representation.
+
+Truncate:
+
+- long strings
+- large nested objects
+- large arrays
+- embedding arrays
+- sensitive values
+
+Do not send complete production documents to the LLM.
+
+Do not expose:
+
+- member identifiers
+- credentials
+- secrets
+- connection strings
+- prohibited fields
+- unnecessary client data
+
+Cache metadata using collection schema version and index version.
+
+Invalidate the cache when schema metadata or indexes change.
+
+==================================================
+8. MQL GENERATION RULES
+==================================================
+
+The MQL generator may produce only:
+
+- find queries
+- read-only aggregation pipelines
+
+Allowed stages must be controlled by each business contract.
+
+Globally prohibit:
+
+- $out
+- $merge
+- $where
+- $function
+- $accumulator
+- mapReduce
+- server-side JavaScript
+- insert
+- update
+- replace
+- delete
+- drop
+- rename
+- createIndex
+- any administrative command
+
+Allow $lookup only when:
+
+- explicitly permitted by the business contract
+- both collections are allowed
+- join fields are approved
+- the query has passed performance validation
+
+Require:
+
+- an early $match using mandatory filters
+- explicit $project
+- explicit limits
+- correct BSON types
+- explicit handling of null and missing values
+- appropriate array operators
+- stable sorting when pagination is used
+
+For dates use proper BSON Date values.
+
+For identifiers use ObjectId only when the annotated schema says the field
+is an ObjectId.
+
+For financial values preserve Decimal128 precision.
+
+Do not convert financial amounts to floating-point values during business
+calculations.
+
+==================================================
+9. QUERY VALIDATION
+==================================================
+
+Implement two separate validation layers.
+
+Layer 1: Deterministic policy validation
+
+Validate:
+
+- selected contract
+- contract version
+- collection allowlist
+- fields
+- metrics
+- dimensions
+- operators
+- aggregation stages
+- permissions
+- mandatory filters
+- result limit
+- lookup restrictions
+- prohibited operators
+- tenant isolation
+
+Layer 2: MongoDB query checker
+
+Use QueryMongoDBCheckerTool or an equivalent isolated checker to validate:
+
+- MQL syntax
+- referenced collections
+- referenced fields
+- BSON data types
+- aggregation stage ordering
+- grouping logic
+- projections
+- null handling
+- array handling
+
+The checker must never execute a query.
+
+If the checker modifies the query, run deterministic validation again.
+
+==================================================
+10. PERFORMANCE PREFLIGHT
+==================================================
+
+Before execution:
+
+- use explain with queryPlanner mode where feasible
+- verify that mandatory filters can use approved indexes
+- reject or request approval for a COLLSCAN on large collections
+- reject unbounded sorting
+- reject unbounded $lookup
+- reject excessive pipeline complexity
+- enforce maximum aggregation stages
+- enforce maximum result rows
+- enforce maxTimeMS
+- enforce driver-side timeout
+- enforce application request timeout
+
+Use configurable defaults:
+
+- maximum result rows: 100
+- absolute maximum result rows: 500
+- maxTimeMS: 10,000
+- maximum aggregation stages: 15
+- maximum lookups: 1
+- maximum LLM planning retries: 2
+
+Make these values configurable by contract and environment.
+
+Support routing analytical agent traffic to an approved read replica or
+analytics workload node instead of the primary transactional workload.
+
+==================================================
+11. QUERY EXECUTION
+==================================================
+
+Use a MongoDB account with read-only permissions.
+
+Use:
+
+- connection pooling
+- TLS
+- secrets from environment variables or a secret manager
+- maxTimeMS
+- result limits
+- correlationId
+- userId
+- conversationId
+- contractId
+- contractVersion
+
+Never log:
+
+- passwords
+- connection strings
+- complete sensitive documents
+- LLM provider secrets
+
+Return structured execution metadata:
+
+{
+  "collection": "...",
+  "operation": "aggregate",
+  "rowCount": 10,
+  "truncated": false,
+  "executionTimeMs": 125,
+  "contractId": "...",
+  "contractVersion": "...",
+  "queryHash": "...",
+  "indexUsed": "...",
+  "warnings": []
+}
+
+==================================================
+12. RESULT VALIDATION
+==================================================
+
+The result validator must check:
+
+- execution succeeded
+- result schema matches the contract
+- mandatory output fields are present
+- prohibited fields are absent
+- sensitive values are masked
+- totals are numeric
+- financial precision is preserved
+- derived metrics use approved formulas
+- division-by-zero is handled
+- results are not unexpectedly empty
+- result truncation is reported
+- totals reconcile when reconciliation rules exist
+
+The LLM must never calculate authoritative business totals when those totals
+can be calculated deterministically.
+
+Calculate totals and formulas in MongoDB or application code.
+
+The LLM may explain verified totals but must not recreate them.
+
+==================================================
+13. RESPONSE CONTRACT
+==================================================
+
+Return a consistent API response:
+
+{
+  "conversationId": "...",
+  "intent": "...",
+  "contract": {
+    "id": "...",
+    "version": "..."
+  },
+  "answer": "...",
+  "sections": [
+    {
+      "title": "Financial Impact",
+      "summary": "...",
+      "data": []
+    }
+  ],
+  "columns": [
+    {
+      "field": "totalRebate",
+      "label": "Total Rebate",
+      "format": "currency"
+    }
+  ],
+  "rows": [],
+  "warnings": [],
+  "clarificationRequired": false,
+  "clarificationQuestion": null,
+  "executionMetadata": {},
+  "suggestedFollowUps": []
+}
+
+The response composer may use only:
+
+- the user's question
+- selected business contract
+- normalized verified results
+- approved labels and descriptions
+- execution warnings
+
+It must not invent:
+
+- totals
+- trends
+- causes
+- comparisons
+- missing data
+- business conclusions
+
+Clearly distinguish:
+
+- direct facts from query results
+- deterministic calculations
+- inferred observations
+
+==================================================
+14. CONVERSATION MEMORY
+==================================================
+
+Use MongoDBSaver for LangGraph checkpoints.
+
+The thread identifier must include user isolation:
+
+    tenantId:userId:conversationId
+
+Store structured conversation state such as:
+
+- current domain
+- current intent
+- selected client
+- selected rptId
+- previous approved filters
+- previous contract
+- previous result reference
+- clarification status
+
+Do not automatically place full query results into every subsequent LLM
+prompt.
+
+Store a compact result summary and a secure result reference.
+
+Do not allow one tenant or user to access another user's conversation state.
+
+Implement configurable retention.
+
+==================================================
+15. AUDIT COLLECTIONS
+==================================================
+
+Create:
+
+- agent_query_audit
+- agent_execution_audit
+- agent_feedback
+- agent_evaluation_results
+
+Audit each request with:
+
+- timestamp
+- userId
+- tenantId
+- role
+- natural-language question
+- detected intent
+- selected contract and version
+- generated QueryPlan
+- final validated pipeline
+- queryHash
+- query-check result
+- explain summary
+- execution status
+- execution time
+- returned row count
+- model name
+- prompt version
+- error category
+- user feedback
+
+Redact sensitive parameter values before storing audit records.
+
+==================================================
+16. ERROR AND CLARIFICATION HANDLING
+==================================================
+
+Do not guess missing identifiers.
+
+Example:
+
+User:
+    "Show the financial impact."
+
+When multiple RPT runs are available and no RPT is selected, return:
+
+    "Which RPT run should I use?"
+
+Use business-specific clarification rules from the contract.
+
+Handle these errors separately:
+
+- missing_context
+- unsupported_intent
+- permission_denied
+- invalid_contract
+- invalid_query_plan
+- unsafe_query
+- query_checker_failed
+- index_required
+- query_timeout
+- empty_result
+- database_unavailable
+- llm_unavailable
+- response_validation_failed
+
+Do not expose internal stack traces to users.
+
+==================================================
+17. SECURITY
+==================================================
+
+Implement:
+
+- read-only database credentials
+- least privilege
+- tenant isolation
+- collection allowlists
+- field allowlists
+- prohibited operator detection
+- prompt-injection detection
+- business contract validation
+- output filtering
+- rate limiting
+- query complexity limits
+- timeouts
+- secret management
+- audit logging
+- secure logging
+- environment separation
+
+Treat database values and retrieved text as untrusted data.
+
+A document stored in MongoDB must never be able to instruct the agent to:
+
+- ignore policies
+- access another collection
+- reveal hidden fields
+- change the system prompt
+- execute a write operation
+
+==================================================
+18. TESTING
+==================================================
+
+Create automated tests for:
+
+1. Equivalent natural-language questions produce equivalent QueryPlans.
+2. Role-specific field visibility.
+3. Mandatory tenant filter injection.
+4. User cannot override tenantId.
+5. Unknown fields are rejected.
+6. Unknown metrics are rejected.
+7. Prohibited collections are rejected.
+8. $where is rejected.
+9. $function is rejected.
+10. $out and $merge are rejected.
+11. Excessive limits are reduced or rejected.
+12. Missing rptId causes clarification.
+13. Decimal128 financial accuracy.
+14. Null and missing fields.
+15. Array queries.
+16. Empty results.
+17. Query timeout.
+18. Query checker failure.
+19. COLLSCAN rejection for large collections.
+20. Prompt-injection content inside database documents.
+21. Cross-tenant conversation isolation.
+22. Three-part RPT summary orchestration.
+23. Multiple concurrent conversations.
+24. Audit records are created.
+25. Sensitive fields do not appear in responses or logs.
+
+Create an evaluation dataset containing at least 50 natural-language
+questions across:
+
+- configuration
+- output
+- financials
+- follow-up questions
+- vague questions
+- invalid questions
+- unauthorized questions
+- adversarial questions
+
+Measure:
+
+- intent accuracy
+- contract-selection accuracy
+- query validity
+- execution success rate
+- result correctness
+- equivalent-query consistency
+- unsafe-query rejection rate
+- clarification accuracy
+- p50 and p95 latency
+
+==================================================
+19. DELIVERABLES
+==================================================
+
+Generate a complete runnable repository with:
+
+app/
+  api/
+  agents/
+  graph/
+  contracts/
+  schemas/
+  planners/
+  validators/
+  compilers/
+  tools/
+  executors/
+  memory/
+  audit/
+  security/
+  observability/
+  models/
+  repositories/
+  services/
+  config/
+
+tests/
+  unit/
+  integration/
+  security/
+  evaluation/
+
+scripts/
+  seed_demo_data.py
+  seed_business_contracts.py
+  create_indexes.py
+  run_evaluations.py
+
+Also include:
+
+- requirements.txt or pyproject.toml
+- Dockerfile
+- docker-compose.yml
+- .env.example
+- README.md
+- architecture.md
+- API examples
+- sample MongoDB documents
+- sample business contracts
+- index definitions
+- pytest configuration
+
+==================================================
+20. OUTPUT EXPECTATIONS
+==================================================
+
+First provide:
+
+1. Architecture decisions.
+2. Component diagram using Mermaid.
+3. LangGraph flow diagram.
+4. MongoDB collection designs.
+5. Business contract design.
+6. Security model.
+7. Package structure.
+
+Then implement the repository file by file.
+
+Do not provide pseudo-code where executable code is expected.
+
+Use complete imports, type hints, error handling, async patterns, dependency
+injection, configuration management, and tests.
+
+Do not invent undocumented production collection structures.
+
+Where the physical schema is unknown:
+
+- create an explicit demo schema
+- label it as an assumption
+- isolate field mappings in the business contract
+- make it replaceable without modifying orchestration code
+
+The final repository must run locally using Docker Compose and must include
+commands to:
+
+1. start MongoDB
+2. seed demo data
+3. seed business contracts
+4. create indexes
+5. start the FastAPI service
+6. execute sample conversational queries
+7. run all tests
+8. run the evaluation suite
