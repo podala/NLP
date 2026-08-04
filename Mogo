@@ -1,0 +1,1103 @@
+Here is the complete **end-to-end flow** for:
+
+> **User asks: “Summarize RPT-10025.”**
+
+This combines:
+
+```text
+Text-to-MQL
++ Planner
++ Business SOP
++ MongoDB execution
++ Reasoning
++ Final summary
+```
+
+# End-to-end architecture
+
+```text
+User Query
+   ↓
+1. Input Guardrail
+   ↓
+2. Intent Router
+   ↓
+3. Entity Extractor
+   ↓
+4. Context Resolver
+   ↓
+5. SOP Retriever
+   ↓
+6. Metadata Retriever
+   ↓
+7. Planner
+   ↓
+8. MQL Generator
+   ↓
+9. MQL Validator
+   ↓
+10. MongoDB Executor
+   ↓
+11. Result Validator
+   ↓
+12. Reasoning / Summary Agent
+   ↓
+13. Response Validator
+   ↓
+14. Final User Response
+   ↓
+15. Audit and Observability
+```
+
+---
+
+# Example input
+
+```json
+{
+  "user_query": "Summarize RPT-10025",
+  "user_id": "USER-101",
+  "roles": [
+    "RPT_ANALYST"
+  ],
+  "session_id": "SESSION-5001"
+}
+```
+
+---
+
+# Step 1: Input guardrail
+
+Check whether the input is valid and safe.
+
+Checks:
+
+```text
+Is the query empty?
+Is the query too large?
+Does it contain prompt-injection instructions?
+Is the requested operation read-only?
+Is the user authenticated?
+```
+
+Output:
+
+```json
+{
+  "input_valid": true,
+  "operation_type": "READ",
+  "blocked": false
+}
+```
+
+For a conversational data system, normally allow:
+
+```text
+find
+aggregate
+count
+distinct
+```
+
+Block:
+
+```text
+insert
+update
+delete
+drop
+renameCollection
+```
+
+---
+
+# Step 2: Intent router
+
+Understand what the user wants.
+
+Input:
+
+```text
+Summarize RPT-10025
+```
+
+Output:
+
+```json
+{
+  "intent": "summarize_entity",
+  "requires_database": true,
+  "requires_reasoning": true,
+  "requires_action": false,
+  "confidence": 0.98
+}
+```
+
+The router understands that this is not only a MongoDB query.
+
+It needs:
+
+```text
+Database retrieval
++
+Business reasoning
++
+Natural-language summary
+```
+
+---
+
+# Step 3: Entity extractor
+
+Extract explicitly mentioned entities.
+
+Output:
+
+```json
+{
+  "entities": [
+    {
+      "entity_type": "RPT",
+      "entity_id": "RPT-10025",
+      "source": "user_query",
+      "confidence": 1.0
+    }
+  ]
+}
+```
+
+The entity extractor does not decide collection names.
+
+It only understands:
+
+```text
+Entity type = RPT
+Entity ID   = RPT-10025
+```
+
+---
+
+# Step 4: Context resolver
+
+Resolve information missing from the current query.
+
+For this query, the RPT ID is already present.
+
+Output:
+
+```json
+{
+  "resolved_query": "Create a business summary for RPT-10025",
+  "resolved_entities": {
+    "rptId": "RPT-10025"
+  },
+  "requires_clarification": false
+}
+```
+
+Context resolver becomes more useful for queries like:
+
+```text
+Summarize it
+Show the same client
+Compare it with the previous run
+Show last month's results
+```
+
+Example:
+
+```text
+“it” → RPT-10025
+“last month” → July 1, 2026 to August 1, 2026
+```
+
+---
+
+# Step 5: Business SOP retriever
+
+Retrieve the approved Standard Operating Procedure for an RPT summary.
+
+The system searches using:
+
+```text
+Intent      = summarize_entity
+Entity type = RPT
+```
+
+Retrieved SOP:
+
+```json
+{
+  "sop_id": "RPT-SUMMARY-SOP",
+  "sop_version": "2.1",
+  "sop_name": "RPT Business Summary Standard Operating Procedure",
+  "required_sections": [
+    "Overview",
+    "Processing status",
+    "Financial summary",
+    "Exceptions",
+    "Approval status",
+    "Recommended actions"
+  ],
+  "required_business_fields": [
+    "rptId",
+    "clientId",
+    "clientName",
+    "status",
+    "runDate",
+    "totalClaims",
+    "totalRebate",
+    "approvalStatus",
+    "exceptions"
+  ],
+  "business_rules": [
+    {
+      "rule_id": "RPT-RULE-001",
+      "description": "Client name must come from the approved client master."
+    },
+    {
+      "rule_id": "RPT-RULE-002",
+      "description": "Any run containing exceptions must be identified as completed with exceptions."
+    },
+    {
+      "rule_id": "RPT-RULE-003",
+      "description": "Pending approval must be highlighted."
+    },
+    {
+      "rule_id": "RPT-RULE-004",
+      "description": "Exceptions must be grouped by type and severity."
+    },
+    {
+      "rule_id": "RPT-RULE-005",
+      "description": "Missing values must be shown as unavailable."
+    },
+    {
+      "rule_id": "RPT-RULE-006",
+      "description": "No missing value may be invented or estimated."
+    }
+  ]
+}
+```
+
+The SOP defines:
+
+```text
+What information the business wants
+How the information should be interpreted
+How the final answer should be structured
+```
+
+---
+
+# Step 6: Metadata retriever
+
+Now retrieve approved database metadata.
+
+The metadata catalogue may return:
+
+```json
+{
+  "entity": "RPT",
+  "primary_collection": {
+    "name": "rpt_runs",
+    "identifier_field": "rptId",
+    "description": "Stores RPT execution-level information"
+  },
+  "related_collections": [
+    {
+      "name": "clients",
+      "description": "Stores client master information",
+      "relationship": {
+        "local_field": "clientId",
+        "foreign_field": "clientId"
+      }
+    },
+    {
+      "name": "rpt_exceptions",
+      "description": "Stores RPT processing exceptions",
+      "relationship": {
+        "local_field": "rptId",
+        "foreign_field": "rptId"
+      }
+    }
+  ],
+  "approved_fields": {
+    "rpt_runs": [
+      "rptId",
+      "clientId",
+      "status",
+      "runDate",
+      "totalClaims",
+      "totalRebate",
+      "approvalStatus"
+    ],
+    "clients": [
+      "clientId",
+      "clientName"
+    ],
+    "rpt_exceptions": [
+      "rptId",
+      "exceptionType",
+      "severity",
+      "count",
+      "description"
+    ]
+  }
+}
+```
+
+Important difference:
+
+```text
+SOP says what business data is needed.
+
+Metadata says where that data exists.
+```
+
+---
+
+# Step 7: Planner
+
+The Planner receives:
+
+```text
+Resolved user request
++ extracted entities
++ business SOP
++ database metadata
++ security permissions
+```
+
+Planner input:
+
+```json
+{
+  "resolved_query": "Create a business summary for RPT-10025",
+  "entity": {
+    "type": "RPT",
+    "id": "RPT-10025"
+  },
+  "sop": {
+    "sop_id": "RPT-SUMMARY-SOP",
+    "sop_version": "2.1"
+  },
+  "metadata": {
+    "primary_collection": "rpt_runs",
+    "related_collections": [
+      "clients",
+      "rpt_exceptions"
+    ]
+  },
+  "permissions": {
+    "allowed_collections": [
+      "rpt_runs",
+      "clients",
+      "rpt_exceptions"
+    ],
+    "allowed_operations": [
+      "aggregate",
+      "find"
+    ]
+  }
+}
+```
+
+Planner output:
+
+```json
+{
+  "plan_id": "PLAN-9001",
+  "goal": "Create a business summary for RPT-10025",
+  "requires_database": true,
+  "requires_reasoning": true,
+
+  "business_sop": {
+    "sop_id": "RPT-SUMMARY-SOP",
+    "sop_version": "2.1",
+    "required_sections": [
+      "Overview",
+      "Processing status",
+      "Financial summary",
+      "Exceptions",
+      "Approval status",
+      "Recommended actions"
+    ],
+    "rules_to_apply": [
+      "RPT-RULE-001",
+      "RPT-RULE-002",
+      "RPT-RULE-003",
+      "RPT-RULE-004",
+      "RPT-RULE-005",
+      "RPT-RULE-006"
+    ]
+  },
+
+  "execution_steps": [
+    {
+      "step": 1,
+      "action": "fetch_primary_rpt",
+      "collection": "rpt_runs",
+      "filter": {
+        "rptId": "RPT-10025"
+      },
+      "fields": [
+        "rptId",
+        "clientId",
+        "status",
+        "runDate",
+        "totalClaims",
+        "totalRebate",
+        "approvalStatus"
+      ]
+    },
+    {
+      "step": 2,
+      "action": "fetch_client_name",
+      "collection": "clients",
+      "relationship": {
+        "localField": "clientId",
+        "foreignField": "clientId"
+      },
+      "fields": [
+        "clientId",
+        "clientName"
+      ]
+    },
+    {
+      "step": 3,
+      "action": "fetch_exceptions",
+      "collection": "rpt_exceptions",
+      "relationship": {
+        "localField": "rptId",
+        "foreignField": "rptId"
+      },
+      "fields": [
+        "exceptionType",
+        "severity",
+        "count",
+        "description"
+      ],
+      "group_by": [
+        "exceptionType",
+        "severity"
+      ]
+    },
+    {
+      "step": 4,
+      "action": "validate_business_data"
+    },
+    {
+      "step": 5,
+      "action": "generate_summary",
+      "summary_type": "rpt_business_summary"
+    }
+  ],
+
+  "required_fields": [
+    "rptId",
+    "clientId",
+    "clientName",
+    "status",
+    "runDate",
+    "totalClaims",
+    "totalRebate",
+    "approvalStatus",
+    "exceptions"
+  ]
+}
+```
+
+The Planner decides:
+
+```text
+What data to fetch
+From which approved collections
+Which relationships to use
+Which SOP rules apply
+How the answer should be structured
+```
+
+The Planner should not directly execute MongoDB queries.
+
+---
+
+# Step 8: MQL generator
+
+The MQL Generator converts the approved plan into MongoDB syntax.
+
+```javascript
+db.rpt_runs.aggregate([
+  {
+    $match: {
+      rptId: "RPT-10025"
+    }
+  },
+  {
+    $limit: 1
+  },
+  {
+    $lookup: {
+      from: "clients",
+      localField: "clientId",
+      foreignField: "clientId",
+      as: "client"
+    }
+  },
+  {
+    $lookup: {
+      from: "rpt_exceptions",
+      let: {
+        currentRptId: "$rptId"
+      },
+      pipeline: [
+        {
+          $match: {
+            $expr: {
+              $eq: [
+                "$rptId",
+                "$$currentRptId"
+              ]
+            }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              exceptionType: "$exceptionType",
+              severity: "$severity"
+            },
+            count: {
+              $sum: {
+                $ifNull: [
+                  "$count",
+                  1
+                ]
+              }
+            },
+            descriptions: {
+              $addToSet: "$description"
+            }
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            exceptionType: "$_id.exceptionType",
+            severity: "$_id.severity",
+            count: 1,
+            descriptions: 1
+          }
+        }
+      ],
+      as: "exceptions"
+    }
+  },
+  {
+    $project: {
+      _id: 0,
+      rptId: 1,
+      clientId: 1,
+      clientName: {
+        $arrayElemAt: [
+          "$client.clientName",
+          0
+        ]
+      },
+      status: 1,
+      runDate: 1,
+      totalClaims: 1,
+      totalRebate: 1,
+      approvalStatus: 1,
+      exceptionCount: {
+        $sum: "$exceptions.count"
+      },
+      exceptions: 1
+    }
+  }
+])
+```
+
+---
+
+# Step 9: MQL validator
+
+Validate the generated query before execution.
+
+## Schema validation
+
+```text
+Does rpt_runs exist?
+Does rptId exist?
+Does clients.clientId exist?
+Does rpt_exceptions.rptId exist?
+Are field types correct?
+```
+
+## Security validation
+
+```text
+Is the user allowed to access these collections?
+Is the operation read-only?
+Are restricted fields excluded?
+```
+
+## Performance validation
+
+```text
+Is there an early $match?
+Is there a $limit?
+Are $lookup fields indexed?
+Is max execution time configured?
+Could the result become too large?
+```
+
+Example validator output:
+
+```json
+{
+  "valid": true,
+  "operation": "aggregate",
+  "collections": [
+    "rpt_runs",
+    "clients",
+    "rpt_exceptions"
+  ],
+  "warnings": [],
+  "max_time_ms": 10000,
+  "result_limit": 1
+}
+```
+
+If invalid:
+
+```json
+{
+  "valid": false,
+  "errors": [
+    {
+      "type": "UNKNOWN_FIELD",
+      "field": "totalClaimAmount"
+    }
+  ]
+}
+```
+
+The MQL should return to the generator for correction.
+
+---
+
+# Step 10: MongoDB executor
+
+The application executes the validated pipeline through a controlled tool.
+
+```python
+result = mongodb_executor.aggregate(
+    collection="rpt_runs",
+    pipeline=validated_pipeline,
+    max_time_ms=10_000,
+    read_preference="secondaryPreferred"
+)
+```
+
+The LLM should not receive unrestricted direct database access.
+
+Executor output:
+
+```json
+{
+  "execution_status": "SUCCESS",
+  "records_returned": 1,
+  "execution_time_ms": 182,
+  "data": [
+    {
+      "rptId": "RPT-10025",
+      "clientId": "CLIENT-101",
+      "clientName": "ABC Health Plan",
+      "status": "COMPLETED_WITH_EXCEPTIONS",
+      "runDate": "2026-08-03T10:30:00Z",
+      "totalClaims": 1250000,
+      "totalRebate": 4850000,
+      "approvalStatus": "PENDING",
+      "exceptionCount": 155,
+      "exceptions": [
+        {
+          "exceptionType": "MISSING_NDC",
+          "severity": "HIGH",
+          "count": 120
+        },
+        {
+          "exceptionType": "INVALID_REBATE_RATE",
+          "severity": "MEDIUM",
+          "count": 25
+        },
+        {
+          "exceptionType": "DUPLICATE_CLAIM",
+          "severity": "LOW",
+          "count": 10
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+# Step 11: Result validator
+
+Validate the returned database data.
+
+Checks:
+
+```text
+Was the RPT found?
+Was exactly one primary record returned?
+Are required fields present?
+Are numeric fields valid?
+Are exception counts consistent?
+Does the status agree with the exception data?
+```
+
+Output:
+
+```json
+{
+  "result_valid": true,
+  "record_found": true,
+  "data_quality_warnings": [],
+  "business_validation": {
+    "has_exceptions": true,
+    "approval_pending": true,
+    "critical_exception_present": true
+  }
+}
+```
+
+Example consistency rule:
+
+```text
+If exceptionCount > 0
+but status = COMPLETED,
+flag a possible business inconsistency.
+```
+
+---
+
+# Step 12: Reasoning and summary agent
+
+The Summary Agent receives:
+
+```text
+Original question
++ validated database results
++ SOP rules
++ required response sections
+```
+
+It does not receive freedom to invent additional facts.
+
+Input:
+
+```json
+{
+  "task": "Create an RPT business summary",
+  "user_query": "Summarize RPT-10025",
+  "sop": {
+    "sop_id": "RPT-SUMMARY-SOP",
+    "sop_version": "2.1",
+    "required_sections": [
+      "Overview",
+      "Processing status",
+      "Financial summary",
+      "Exceptions",
+      "Approval status",
+      "Recommended actions"
+    ],
+    "rules": [
+      "Use only validated data",
+      "Do not estimate missing values",
+      "Highlight pending approval",
+      "Highlight high-severity exceptions",
+      "Separate facts and recommendations"
+    ]
+  },
+  "validated_data": {
+    "rptId": "RPT-10025",
+    "clientName": "ABC Health Plan",
+    "status": "COMPLETED_WITH_EXCEPTIONS",
+    "runDate": "2026-08-03T10:30:00Z",
+    "totalClaims": 1250000,
+    "totalRebate": 4850000,
+    "approvalStatus": "PENDING",
+    "exceptionCount": 155,
+    "exceptions": [
+      {
+        "exceptionType": "MISSING_NDC",
+        "severity": "HIGH",
+        "count": 120
+      },
+      {
+        "exceptionType": "INVALID_REBATE_RATE",
+        "severity": "MEDIUM",
+        "count": 25
+      },
+      {
+        "exceptionType": "DUPLICATE_CLAIM",
+        "severity": "LOW",
+        "count": 10
+      }
+    ]
+  }
+}
+```
+
+Reasoning output:
+
+```json
+{
+  "overview": "RPT-10025 belongs to ABC Health Plan and ran on August 3, 2026.",
+  "processing_status": "The run completed with exceptions.",
+  "financial_summary": {
+    "totalClaims": 1250000,
+    "totalRebate": 4850000
+  },
+  "exception_summary": {
+    "totalExceptions": 155,
+    "highestSeverity": "HIGH",
+    "primaryIssue": "MISSING_NDC",
+    "primaryIssueCount": 120
+  },
+  "approval_status": "PENDING",
+  "recommendations": [
+    "Review the 120 missing-NDC exceptions before approval.",
+    "Validate the 25 invalid rebate-rate records."
+  ]
+}
+```
+
+---
+
+# Step 13: Response validator
+
+Before returning the answer, validate the generated response.
+
+Check:
+
+```text
+Did the answer use only the returned data?
+Are all required SOP sections included?
+Were any unsupported conclusions added?
+Are numbers consistent with MongoDB output?
+Is pending approval highlighted?
+Are facts separated from recommendations?
+```
+
+Output:
+
+```json
+{
+  "response_valid": true,
+  "grounded": true,
+  "required_sections_present": true,
+  "unsupported_claims": []
+}
+```
+
+---
+
+# Step 14: Final user response
+
+```text
+RPT-10025 Summary
+
+Overview
+RPT-10025 belongs to ABC Health Plan and was processed on
+August 3, 2026.
+
+Processing status
+The run completed with exceptions.
+
+Financial summary
+The run processed 1,250,000 claims and calculated a total
+rebate of 4,850,000.
+
+Exceptions
+A total of 155 exceptions were identified:
+
+• 120 missing-NDC records — High severity
+• 25 invalid rebate-rate records — Medium severity
+• 10 duplicate-claim records — Low severity
+
+Approval status
+The RPT is currently pending approval.
+
+Recommended actions
+Review the missing-NDC and invalid rebate-rate records before
+approving the RPT.
+```
+
+---
+
+# Step 15: Audit and observability
+
+Store the technical trace without unnecessarily storing sensitive response data.
+
+```json
+{
+  "trace_id": "TRACE-70001",
+  "session_id": "SESSION-5001",
+  "user_id": "USER-101",
+  "intent": "summarize_entity",
+  "entity_type": "RPT",
+  "entity_id": "RPT-10025",
+  "plan_id": "PLAN-9001",
+  "sop_id": "RPT-SUMMARY-SOP",
+  "sop_version": "2.1",
+  "collections_accessed": [
+    "rpt_runs",
+    "clients",
+    "rpt_exceptions"
+  ],
+  "query_validated": true,
+  "records_returned": 1,
+  "database_latency_ms": 182,
+  "response_grounded": true,
+  "final_status": "SUCCESS"
+}
+```
+
+Important metrics:
+
+```text
+Intent-classification accuracy
+Entity-extraction accuracy
+Collection-selection accuracy
+MQL execution success rate
+MQL correction rate
+Database latency
+Result-grounding score
+SOP compliance score
+Hallucination rate
+End-to-end response time
+```
+
+# Failure handling
+
+## RPT ID not found
+
+```json
+{
+  "status": "NOT_FOUND",
+  "message": "No RPT was found for RPT-10025."
+}
+```
+
+The reasoning model must not create a summary.
+
+## Multiple primary records found
+
+```json
+{
+  "status": "DATA_INTEGRITY_ERROR",
+  "message": "Multiple primary records were found for RPT-10025."
+}
+```
+
+Do not automatically select one.
+
+## Client name missing
+
+```text
+Client ID: CLIENT-101
+Client name: Unavailable
+```
+
+Do not invent the name.
+
+## MongoDB timeout
+
+```json
+{
+  "status": "DATABASE_TIMEOUT",
+  "retryable": true
+}
+```
+
+Retry through application-controlled retry logic, not through uncontrolled LLM loops.
+
+## Missing required field
+
+```json
+{
+  "status": "PARTIAL_DATA",
+  "missing_fields": [
+    "totalRebate"
+  ]
+}
+```
+
+The final answer should state:
+
+```text
+Total rebate information is unavailable.
+```
+
+# Final responsibility map
+
+| Component          | Responsibility                                         |
+| ------------------ | ------------------------------------------------------ |
+| Input Guardrail    | Validate and protect the request                       |
+| Intent Router      | Identify what the user wants                           |
+| Entity Extractor   | Extract explicit IDs and values                        |
+| Context Resolver   | Resolve “it,” “that client,” dates and session context |
+| SOP Retriever      | Retrieve approved business procedures                  |
+| Metadata Retriever | Retrieve real collections, fields and relationships    |
+| Planner            | Decide what must be fetched and processed              |
+| MQL Generator      | Convert the plan into MongoDB syntax                   |
+| MQL Validator      | Validate schema, security and performance              |
+| MongoDB Executor   | Execute the controlled query                           |
+| Result Validator   | Check data completeness and consistency                |
+| Summary Agent      | Apply business reasoning and generate the summary      |
+| Response Validator | Check grounding and SOP compliance                     |
+| Audit Service      | Store traceability and operational metrics             |
+
+# Most important design
+
+```text
+User query
+    ↓
+Understand request
+    ↓
+Resolve context
+    ↓
+Retrieve SOP
+    ↓
+Retrieve metadata
+    ↓
+Create plan
+    ↓
+Generate validated MQL
+    ↓
+Execute MongoDB query
+    ↓
+Validate returned data
+    ↓
+Apply business reasoning
+    ↓
+Validate and return the answer
+```
+
+The essential principle is:
+
+```text
+Metadata tells the system what data exists.
+
+Business SOP tells the system what the business expects.
+
+Planner decides what work must be performed.
+
+MQL Generator decides how MongoDB should retrieve the data.
+
+Reasoning Agent explains the validated data.
+```
+
