@@ -1,0 +1,53 @@
+Reflecting on my goals for this year, my key accomplishments were centered around the modernization, performance, scalability, and integration of the RPT underwriting ecosystem.
+
+RPT Modernization and Architecture
+
+Played a key role in defining the target architecture for the RPT modernization program, moving the platform away from legacy and tightly coupled processing toward a more scalable, cloud-native architecture. I worked across application, integration, data, processing, security, and infrastructure layers to ensure the solution could support the evolving underwriting business needs.
+
+RPT Performance and Cycle-Time Improvement
+
+A major focus was identifying the key areas contributing to the overall RPT processing cycle time and defining architectural improvements to address them.
+
+I worked across the end-to-end processing flow, including application processing, integrations, Databricks workloads, MongoDB access patterns, and asynchronous job execution, to identify opportunities for improving performance and scalability.
+
+The architecture was designed around key performance indicators such as job initiation time, end-to-end processing time, processing throughput, concurrent workload handling, and database performance. This helped establish a more structured approach for improving RPT performance and reducing the time required to complete underwriting pricing cycles.
+
+RPT Data Architecture and MongoDB Modeling
+
+Designed and evolved the MongoDB data model for RPT, taking into consideration high-volume pricing results, application access patterns, scalability, and downstream reporting requirements.
+
+This included defining document structures, indexing strategies, calculated-data models, job-status tracking, and data-access patterns to improve query performance and provide a scalable foundation for RPT processing.
+
+RRF Cloud Migration
+
+Contributed to the RRF cloud migration strategy and target-state architecture, helping transition RRF capabilities from the existing environment toward the broader cloud-based underwriting ecosystem.
+
+The work included defining application, data, integration, security, deployment, and connectivity patterns and ensuring that RRF could integrate effectively with RPT and other dependent underwriting applications.
+
+Integration Across CMT, RRF, RPT and P&L
+
+Leveraged and designed enterprise integration solutions connecting CMT, RRF, RPT and P&L, with a focus on creating a reliable end-to-end underwriting workflow.
+
+I helped establish appropriate API, asynchronous messaging, orchestration, and event-driven integration patterns to reduce application dependencies and improve the reliability, scalability, and maintainability of cross-system processing.
+
+This was particularly important in supporting the broader business workflow from case initiation and RRF submission through pricing processing and downstream P&L and approval activities.
+
+Front-End Modernization
+
+Contributed to the modernization of the RPT user-facing application, including the transition from the existing Next.js implementation toward the React Web App surface and enterprise frontend architecture.
+
+The objective was to simplify the application architecture, improve maintainability, enable better integration with the broader underwriting platform, and provide a stronger foundation for future RPT capabilities.
+
+Cloud and Platform Architecture
+
+Worked across the broader RPT cloud architecture involving Azure App Services, AKS, Spring Boot services, Azure Service Bus, Databricks, Blob Storage, MongoDB Atlas, ADF, ACR, private networking, and enterprise security patterns.
+
+A key part of my contribution was ensuring that individual technology decisions worked together as an end-to-end production architecture, rather than solving individual application requirements in isolation.
+
+Overall Impact
+
+Overall, my contribution this year has been focused on helping move RPT and the surrounding underwriting applications toward an integrated, scalable and cloud-native platform.
+
+The key areas where I added value were RPT performance and cycle-time improvement, MongoDB data architecture, RRF cloud migration, frontend modernization, integration between CMT/RRF/RPT/P&L, and establishing the overall technical architecture required to support the future underwriting platform.
+
+In addition to delivering individual technical solutions, I increased my ownership of end-to-end architecture decisions, cross-application dependencies, technical problem solving, and alignment between business requirements and implementation teams.
