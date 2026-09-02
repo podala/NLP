@@ -1,0 +1,14 @@
+| ID                 | What it identifies                           | Scope                            | Example                            |
+| ------------------ | -------------------------------------------- | -------------------------------- | ---------------------------------- |
+| **Trace ID**       | One complete end-to-end request              | Across all services              | `4bf92f3577b34da6a3ce929d0e0e4736` |
+| **Span ID**        | One operation inside that trace              | One service/API/DB call          | `00f067aa0ba902b7`                 |
+| **Parent Span ID** | The span that called the current span        | Builds parent-child tree         | `b7ad6b7169203331`                 |
+| **Request ID**     | One HTTP/API request                         | Usually one service boundary     | `req-829134`                       |
+| **Correlation ID** | Business-level correlation across components | App-defined                      | `CORR-20260829-10023`              |
+| **Transaction ID** | One business/DB transaction                  | Business or database transaction | `TXN-948382`                       |
+| **Message ID**     | One queue/event message                      | Service Bus/Kafka/EventHub       | `MSG-76321`                        |
+| **Session ID**     | One user/application session                 | Until logout/session expiry      | `SES-ab7231`                       |
+| **Operation ID**   | Logical application operation                | Depends on platform              | `price-run-123`                    |
+| **Job / Run ID**   | Long-running batch/process execution         | One job lifecycle                | `RUN-20260829-001`                 |
+| **User ID**        | User performing the action                   | Across requests                  | `user123`                          |
+| **Tenant ID**      | Customer/company/tenant                      | Multi-tenant systems             | `tenant-abc`                       |
