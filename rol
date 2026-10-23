@@ -1,0 +1,25 @@
+Forward Deployed Engineer (FDE) – Amazon Connect & Agentic AI
+
+Role Overview
+
+We are looking for a hands-on Forward Deployed Engineer to design, develop, test, and deploy intelligent contact center solutions using Amazon Connect, Amazon Bedrock, and Agentic AI. The role combines strong software engineering, test automation, cloud architecture, and cross-functional collaboration to deliver production-ready AI solutions.
+
+Core Responsibilities
+
+Amazon Connect: Design and implement conversational chat and voice solutions, contact flows, intelligent routing, and human-agent handoffs.
+
+Agentic AI: Develop AI-powered experiences using Amazon Bedrock, AI agents, RAG, knowledge bases, and enterprise integrations.
+
+Full-Stack Engineering: Build scalable applications and APIs using Python, Node.js, React, AWS Lambda, API Gateway, and DynamoDB.
+
+Test Automation: Develop and maintain end-to-end automated tests using Playwright, covering UI interactions, API integrations, conversational AI workflows, and regression testing.
+
+Enterprise Integration: Integrate contact center and AI capabilities with customer portals, CRM platforms, and backend systems, ensuring secure authentication and authorization.
+
+Production Engineering: Own CI/CD, automated testing, observability, troubleshooting, performance optimization, and production deployments.
+
+Forward Deployment: Collaborate with stakeholders, translate business needs into working solutions, and drive delivery from prototype to production.
+
+Required Skills
+
+Strong hands-on expertise in Amazon Connect, Amazon Bedrock, Python/Node.js, React, Playwright, REST APIs, and AWS cloud-native services. Experience with conversational AI, agentic workflows, automated testing frameworks, and enterprise integrations is preferred.
