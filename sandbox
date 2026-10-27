@@ -1,0 +1,88 @@
+Act as a Senior AWS Cloud Architect and DevOps Engineer.
+
+**Objective:** Create a complete, production-style AWS CloudFront + S3 static website hosting project that I can deploy into my existing AWS Sandbox account using VS Code.
+
+**Technology Stack:**
+- AWS S3 for static file storage
+- AWS CloudFront for CDN and HTTPS
+- CloudFront Origin Access Control (OAC)
+- AWS CDK with TypeScript for Infrastructure as Code
+- AWS CLI for authentication and deployment
+- HTML, CSS, and JavaScript for a sample application
+
+**Requirements:**
+
+1. Create a complete VS Code project with a proper folder structure.
+2. Initialize an AWS CDK TypeScript project.
+3. Create a private S3 bucket with public access blocked.
+4. Configure a CloudFront distribution with OAC for secure S3 access.
+5. Enable HTTPS using the default CloudFront certificate.
+6. Set `index.html` as the default root object.
+7. Deploy a sample web application displaying "AWS Sandbox CloudFront Demo".
+8. Add a sample `chat-widget.js` file to demonstrate how an Amazon Connect chat widget could later be hosted.
+9. Automatically deploy static files to S3 using CDK BucketDeployment.
+10. Configure appropriate cache policies and compression.
+11. Add AWS resource tags: `Environment=Sandbox` and `Project=ConnectChatWidget`.
+12. Do not create IAM users, access keys, VPCs, or unnecessary infrastructure.
+13. Use the least-privilege principle. Do not make the S3 bucket public.
+14. Use CDK-supported, current APIs and avoid deprecated constructs.
+15. Ensure all resource names are configurable and avoid global-name collisions.
+16. Provide a cleanup process using `cdk destroy`, with a clear explanation of which resources it removes.
+
+**AWS Sandbox Requirements:**
+
+- Use an existing AWS account and configured AWS CLI profile.
+- Region should be configurable, not hardcoded.
+- Before deployment, check AWS identity using `aws sts get-caller-identity`.
+- Verify AWS CLI, Node.js, npm, and CDK prerequisites.
+- Check whether CDK bootstrap resources already exist.
+- Explain that CDK bootstrap may require administrator approval.
+- Never modify shared sandbox resources without authorization.
+- Avoid creating any resources until I explicitly approve deployment.
+
+**Expected Project Structure:**
+
+```text
+aws-cloudfront-sandbox/
+├── bin/
+│   └── app.ts
+├── lib/
+│   └── cloudfront-stack.ts
+├── website/
+│   ├── index.html
+│   ├── styles.css
+│   └── chat-widget.js
+├── test/
+├── cdk.json
+├── package.json
+├── tsconfig.json
+├── .gitignore
+└── README.md
+```
+
+**Implementation Instructions:**
+
+Step 1: Create all project folders and files.
+
+Step 2: Generate complete working code for every file.
+
+Step 3: Install necessary npm dependencies.
+
+Step 4: Validate TypeScript compilation and run `cdk synth` when prerequisites allow.
+
+Step 5: Explain the AWS resources that will be created and provide a cost warning.
+
+Step 6: Show the exact deployment commands:
+
+- `aws sts get-caller-identity --profile YOUR_PROFILE`
+- `npm install`
+- `npx cdk synth --profile YOUR_PROFILE`
+- `npx cdk deploy --profile YOUR_PROFILE`
+
+Step 7: Do not execute `cdk deploy`, `cdk bootstrap`, or any destructive command without my explicit approval.
+
+Step 8: After approved deployment, explain how to verify the CloudFront URL, test `index.html`, and access `chat-widget.js`.
+
+Step 9: Provide troubleshooting instructions for AccessDenied, missing IAM permissions, CloudFront 403 errors, and CDK bootstrap errors.
+
+**Important:** Create actual working files directly in the VS Code workspace, not just code snippets in chat. Start by creating the complete project and validating it locally. Stop before AWS deployment and request my approval.
