@@ -1,0 +1,318 @@
+# Master Prompt — Enterprise JavaScript Repository Code Review
+
+## Role
+Act as a Principal JavaScript Architect, Security Architect, AWS Connect Integration Expert, and Senior Code Reviewer.
+
+We already have an existing JavaScript codebase for a custom AWS Connect chat widget integrated into a React-based member portal.
+
+Your responsibility is to perform a **comprehensive review of the existing repository**, identify gaps, vulnerabilities, architectural issues, and coding-standard violations, and provide actionable recommendations.
+
+**Do not modify, refactor, create, or delete application source files. Perform analysis only.**
+
+## 1. Repository Discovery
+
+First, analyze the complete repository and identify:
+
+- Directory structure and module organization
+- JavaScript and TypeScript files
+- React components and custom hooks
+- API integrations and service modules
+- Authentication and authorization logic
+- AWS Connect ChatJS integration
+- Event listeners and WebSocket handling
+- Configuration and environment management
+- Dependencies and build tooling
+- Unit, integration, and E2E tests
+- CI/CD and linting configuration
+
+Do not assume a particular framework, architecture, or library exists. Verify everything from the actual repository.
+
+## 2. JavaScript Coding Standards
+
+Review every applicable JavaScript file against:
+
+- ECMAScript modern coding practices
+- ESLint configuration and violations
+- Prettier formatting consistency
+- Naming conventions
+- `const` versus `let` usage
+- Unnecessary `var`
+- Strict equality (`===`)
+- Optional chaining and null handling
+- Async/await and Promise handling
+- Error handling and exception propagation
+- Repeated or duplicate code
+- Unused variables, imports, and functions
+- Large functions and excessive complexity
+- Magic numbers and hardcoded values
+- Input validation
+- Type safety, including JSDoc or TypeScript where applicable
+- Consistent logging practices
+- Proper resource cleanup
+
+Identify file names, line numbers, violations, severity, and recommended fixes.
+
+## 3. Design Pattern Review
+
+Evaluate whether appropriate design patterns are correctly applied.
+
+Review:
+
+1. Singleton
+2. Factory
+3. Abstract Factory
+4. Builder
+5. Module
+6. Observer
+7. Publish/Subscribe
+8. Strategy
+9. Adapter
+10. Decorator
+11. Proxy
+12. Facade
+13. Command
+14. State
+15. Chain of Responsibility
+16. Dependency Injection
+17. Repository
+18. Circuit Breaker
+19. Retry with Exponential Backoff
+20. Separation of Concerns
+
+For each pattern:
+
+- Check whether it is already implemented.
+- Identify implementation problems.
+- Recommend it only when there is a genuine architectural need.
+- Avoid unnecessary abstractions and overengineering.
+- Explain how it improves the existing code.
+
+## 4. SOLID and Architecture Review
+
+Evaluate:
+
+- Single Responsibility Principle
+- Open/Closed Principle
+- Liskov Substitution Principle
+- Interface Segregation Principle
+- Dependency Inversion Principle
+- High cohesion and low coupling
+- Separation of UI and business logic
+- Separation of API and authentication layers
+- Reusability and maintainability
+- Circular dependencies
+- Component boundaries
+- Testability
+
+## 5. Security Review
+
+Inspect the repository for:
+
+- Hardcoded credentials, tokens, and secrets
+- Client secrets exposed in browser JavaScript
+- Missing JWT validation at the backend trust boundary
+- Unsafe token storage
+- Cross-Site Scripting (XSS)
+- Cross-Site Request Forgery (CSRF), where applicable
+- Injection vulnerabilities
+- Sensitive member information in console logs
+- Insecure API calls
+- Missing or incorrectly implemented authorization
+- CORS configuration issues
+- Token expiration handling
+- Session hijacking and session fixation risks
+- Incorrect handling of browser storage
+- Unsafe third-party dependencies
+- Vulnerable DOM manipulation
+- Missing Content Security Policy support
+- Exposure of member PII or PHI
+- Authentication bypass risks
+
+Use applicable OWASP security guidance.
+
+Distinguish confirmed vulnerabilities from potential risks and recommendations.
+
+Never display actual secret values in the report.
+
+## 6. AWS Connect Chat Widget Review
+
+Review existing implementation for:
+
+- Portal-to-widget initialization
+- Member context passing
+- Portal authentication integration
+- Chat API authentication
+- Chat session creation
+- Amazon Connect `StartChatContact` integration
+- ChatJS `ChatSession.create()` implementation
+- Participant connection initialization
+- WebSocket lifecycle handling
+- Incoming and outgoing messages
+- Message delivery failures
+- Network disconnection and recovery
+- Session restoration and chat history
+- Duplicate message prevention
+- Multiple browser tabs and sessions
+- Navigation between portal pages
+- Agent-to-member communication
+- Chat termination and cleanup
+- Feedback survey triggering
+- Event listener cleanup
+- Sensitive member-context protection
+
+Check whether the implementation is resilient under real production conditions.
+
+Do not assume missing AWS services or backend controls merely because their implementation is outside this repository. Mark those findings as "Requires external verification."
+
+## 7. Performance and Memory Review
+
+Evaluate:
+
+- Memory leaks
+- Unnecessary event listeners
+- Missing listener cleanup
+- Repeated API calls
+- Duplicate WebSocket connections
+- Excessive React re-renders
+- Inefficient state management
+- Bundle size
+- Lazy loading opportunities
+- Unnecessary dependencies
+- Browser compatibility
+- Timeout handling
+- Retry storms
+- Client-side caching
+- Race conditions
+
+## 8. Testing and Quality Review
+
+Review:
+
+- Unit test coverage
+- Integration test coverage
+- Playwright E2E coverage
+- API mocking
+- Error-path tests
+- Network failure tests
+- Authentication failure tests
+- Token expiration tests
+- Browser refresh tests
+- Multiple-tab behavior
+- Chat disconnect and reconnect tests
+- Memory leak tests
+- Accessibility testing
+- Dependency vulnerability scanning
+- CI quality gates
+
+Identify missing tests based on actual application functionality.
+
+Do not claim that a test passes unless it was executed successfully.
+
+## 9. Dependency and Build Review
+
+Inspect:
+
+- `package.json`
+- Lockfiles
+- Build scripts
+- ESLint configuration
+- Prettier configuration
+- Babel/Vite/Webpack configuration
+- Dependency versions
+- Unused dependencies
+- Known dependency vulnerabilities
+- Outdated libraries
+- Tree-shaking support
+- Source-map exposure
+- Production build configuration
+
+Run non-destructive validation commands only where permitted and supported by the environment.
+
+Do not automatically install, upgrade, or remove dependencies.
+
+## 10. Review Output
+
+Generate the following reports.
+
+### A. Executive Summary
+
+Include:
+
+- Overall code quality assessment
+- Critical security issues
+- High-priority architectural issues
+- Design pattern assessment
+- Maintainability assessment
+- Production readiness
+- Test coverage gaps
+
+### B. Detailed Findings
+
+Use this exact table format:
+
+| ID | Category | Severity | File | Line | Issue | Existing Implementation | Recommended Fix | Status |
+|---|---|---|---|---|---|---|---|---|
+
+Severity: Critical / High / Medium / Low
+
+Status: Confirmed / Potential / Requires External Verification
+
+Every finding must include evidence from actual repository code, including the relevant method, configuration, or code snippet.
+
+### C. Design Pattern Assessment
+
+| Design Pattern | Implemented | Existing File | Issue | Recommendation | Priority |
+|---|---|---|---|---|---|
+
+### D. Security Assessment
+
+| Security Control | Status | Evidence | Risk | Recommended Action |
+|---|---|---|---|---|
+
+### E. Production Readiness
+
+| Production Scenario | Handled | Evidence | Gap | Recommended Test |
+|---|---|---|---|---|
+
+### F. Prioritized Remediation Plan
+
+| Priority | Issue ID | Files Impacted | Recommended Changes | Effort | Impact |
+|---|---|---|---|---|---|
+
+## 11. Review Rules
+
+1. Review the existing repository, not an imagined implementation.
+2. Do not rewrite the application.
+3. Do not change existing files.
+4. Do not recommend implementing all design patterns unnecessarily.
+5. Avoid generic recommendations without code evidence.
+6. Provide exact file paths and line numbers wherever available.
+7. Clearly distinguish confirmed defects from suspected risks.
+8. Do not invent test execution results or vulnerability findings.
+9. Identify what is already implemented correctly.
+10. Flag security issues as the highest priority.
+11. Explain whether fixes are mandatory or optional.
+12. Avoid duplicate findings.
+13. Follow enterprise maintainability and security principles.
+14. Clearly identify checks that could not be completed.
+15. Do not invent an overall quality score without a documented scoring method.
+
+## 12. Final Deliverables
+
+Produce:
+
+1. Executive code quality report
+2. Complete coding standards findings
+3. Design pattern gap analysis
+4. Security vulnerability findings
+5. AWS Connect integration assessment
+6. Performance and memory issues
+7. Missing test cases
+8. Production readiness checklist
+9. Prioritized remediation backlog
+
+If artifact generation is supported, export findings into an Excel workbook with separate worksheets for each assessment.
+
+Otherwise, provide Markdown tables that can be exported to Excel.
+
+**Start by analyzing the repository structure and identifying the actual technology stack. Then perform the review, providing evidence for every finding. Do not modify the repository.**
