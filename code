@@ -1,0 +1,41 @@
+8:39 PM
+This repo is an audit toolkit. You don't run it against a GitHub URL directly. You clone the other repo onto your machine, install the agent into that clone, and run the audit from inside it. Here are the steps:
+
+1. Install the prerequisites (once)
+
+Claude Code, Python 3.9+ and Git Bash (install.sh is a bash script, so on Windows run it from Git Bash).
+pip install --user openpyxl
+2. Clone the repo you want to review
+
+
+cd ~/Desktop
+git clone https://github.com/<owner>/<repo>.git
+3. Install the audit agent into that clone. Run this from this repo's folder:
+
+
+cd ~/Desktop/Aws-Connect-agent
+bash install.sh ~/Desktop/<repo>      # installs into that repo's .claude/
+# or, once for every repo on your machine:
+bash install.sh --user
+4. Open Claude Code at the root of the cloned repo
+
+
+cd ~/Desktop/<repo>
+claude
+In VS Code, you can instead open that folder and start Claude Code there.
+
+5. Run the audit
+
+
+/code-audit connect-chat
+connect-chat is the Amazon Connect ChatJS checklist. If the other repo isn't an Amazon Connect chat app, first make your own pack by copying claude/code-audit/packs/_template/, then run /code-audit <your-pack>.
+
+6. Read the results, which land in audit/ inside the cloned repo:
+
+audit/findings.json
+audit/connect-chat-audit-report.xlsx
+You'll also get a summary in the chat with the counts, the go-live blockers and the items that need a manual check.
+
+The audit only reads the code and never changes it, so cloning a repo you don't own is safe. Add audit/ to that repo's .gitignore if you don't want the reports committed.
+
+If you send me the GitHu
